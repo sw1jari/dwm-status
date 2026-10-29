@@ -119,9 +119,25 @@ while true; do
     fi
 
     parts=( "$RAM" "$CPU" "$GOV_ENTRY" )
+    # music-menu's mpv first, else whatever Spotify is playing (also the hidden one from spotify-menu)
+    _music="" _music_time=""
     if [ -r "${XDG_RUNTIME_DIR:-/tmp}/music-now" ]; then
         read -r _music < "${XDG_RUNTIME_DIR:-/tmp}/music-now"
+    elif command -v playerctl >/dev/null 2>&1; then
+        # status|position/length|artist - title, with the title last since it may contain a |
+        _spotify=$(playerctl -p spotify metadata --format \
+            '{{status}}|{{duration(position)}}/{{duration(mpris:length)}}|{{artist}} - {{title}}' 2>/dev/null)
+        _spotify_rest=${_spotify#*|}
+        _music_time=${_spotify_rest%%|*}
+        case "${_spotify%%|*}" in
+            Playing) _music="♪ ${_spotify_rest#*|}" ;;
+            Paused)  _music="⏸ ${_spotify_rest#*|}" ;;
+        esac
+    fi
+    if [ -n "$_music" ]; then
+        # shorten only the title, so the time stays readable
         [ ${#_music} -gt 50 ] && _music="${_music:0:49}…"
+        [ -n "$_music_time" ] && _music="$_music $_music_time"
         parts=( "$_music" "${parts[@]}" )
     fi
     [ -n "$GPU_ENTRY" ] && parts+=( "$GPU_ENTRY" )

@@ -10,7 +10,7 @@ It shows:
 - battery level and charging state, with a notification at 10% and 5%
 - the wifi network
 - the date and time
-- the current track from [music-menu](https://github.com/sw1jari/music-menu), when something is playing
+- the current track from [music-menu](https://github.com/sw1jari/music-menu), or else from Spotify (via playerctl) with the time into the song and its length, when something is playing or paused
 
 ## Requirements
 bash, xsetroot, procps (`free`), NetworkManager (`nmcli`), optionally nvidia-smi.
