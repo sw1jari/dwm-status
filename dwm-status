@@ -43,7 +43,9 @@ TICKS_PER_SECOND=4
 # titles longer than this many characters scroll, MUSIC_WIDTH=15 is handy for testing
 MUSIC_WIDTH="${MUSIC_WIDTH:-26}"
 SCROLL_GAP="   ·   "
-SCROLL_PAUSE_TICKS=8
+# how long a title stands still at its start before it scrolls
+SCROLL_PAUSE_SECONDS=4
+SCROLL_PAUSE_TICKS=$(( SCROLL_PAUSE_SECONDS * TICKS_PER_SECOND ))
 
 update_stats() {
     _max_core=0
