@@ -41,7 +41,7 @@ _notified_5=0
 TICK=0.25
 TICKS_PER_SECOND=4
 # titles longer than this many characters scroll, MUSIC_WIDTH=15 is handy for testing
-MUSIC_WIDTH="${MUSIC_WIDTH:-50}"
+MUSIC_WIDTH="${MUSIC_WIDTH:-26}"
 SCROLL_GAP="   ·   "
 SCROLL_PAUSE_TICKS=8
 
