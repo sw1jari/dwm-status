@@ -10,7 +10,7 @@ It shows:
 - battery level and charging state, with a notification at 10% and 5%
 - the wifi network, or "eth" when connected by ethernet
 - the date and time
-- the current track from [music-menu](https://github.com/sw1jari/music-menu), or else from Spotify (via playerctl) with the time into the song and its length, when something is playing or paused. Titles longer than 50 characters scroll left like a ticker; set `MUSIC_WIDTH` to change that limit
+- the current track from [music-menu](https://github.com/sw1jari/music-menu), or else from Spotify (via playerctl) with the time into the song, its length and 🔁 or 🔂 when on repeat all or repeat one, when something is playing or paused. Titles longer than 50 characters scroll left like a ticker; set `MUSIC_WIDTH` to change that limit
 
 ## Requirements
 bash, xsetroot, procps (`free`), NetworkManager (`nmcli`), optionally nvidia-smi.

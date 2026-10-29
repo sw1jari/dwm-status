@@ -135,20 +135,27 @@ update_stats() {
 _scroll_title="" _scroll_offset=0 _scroll_pause=0
 update_music() {
     # music-menu's mpv first, else whatever Spotify is playing (also the hidden one from spotify-menu)
-    local line="" icon="" title="" time=""
+    local line="" icon="" title="" time="" repeat=""
     if [ -r "${XDG_RUNTIME_DIR:-/tmp}/music-now" ]; then
         read -r line < "${XDG_RUNTIME_DIR:-/tmp}/music-now"
         icon="${line%% *}" title="${line#* }"
     elif command -v playerctl >/dev/null 2>&1; then
-        # status|position/length|artist - title, with the title last since it may contain a |
+        # status|loop|position/length|artist - title, with the title last since it may contain a |
         line=$(playerctl -p spotify metadata --format \
-            '{{status}}|{{duration(position)}}/{{duration(mpris:length)}}|{{artist}} - {{title}}' 2>/dev/null)
+            '{{status}}|{{loop}}|{{duration(position)}}/{{duration(mpris:length)}}|{{artist}} - {{title}}' 2>/dev/null)
         local rest="${line#*|}"
+        local loop="${rest%%|*}"
+        rest="${rest#*|}"
         time="${rest%%|*}" title="${rest#*|}"
         case "${line%%|*}" in
             Playing) icon="♪" ;;
             Paused)  icon="⏸" ;;
             *)       title="" ;;
+        esac
+        # repeat one or repeat all, nothing when repeat is off
+        case "$loop" in
+            Track)    repeat="🔂" ;;
+            Playlist) repeat="🔁" ;;
         esac
     fi
 
@@ -174,7 +181,7 @@ update_music() {
         fi
     fi
 
-    MUSIC_ENTRY="$icon $shown${time:+ $time}"
+    MUSIC_ENTRY="$icon $shown${time:+ $time}${repeat:+ $repeat}"
 }
 
 _tick=0
