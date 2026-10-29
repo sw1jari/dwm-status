@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# use dunstify if installed, else notify-send (both take -u level, title, body)
+notify() {
+    DISPLAY="${DISPLAY:-:0}" DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}" \
+        "$_notifier" "$@"
+}
+if command -v dunstify >/dev/null 2>&1; then
+    _notifier=dunstify
+elif command -v notify-send >/dev/null 2>&1; then
+    _notifier=notify-send
+else
+    notify() { :; }
+fi
+
 GPU_AVAILABLE=0
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
     GPU_AVAILABLE=1
@@ -82,12 +95,10 @@ while true; do
 
         if [ "$S" = "Discharging" ]; then
             if [ "$P" -le 5 ] && [ "$_notified_5" -eq 0 ]; then
-                DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-                    dunstify -u critical "Battery critical" "${P}% remaining"
+                notify -u critical "Battery critical" "${P}% remaining"
                 _notified_5=1
             elif [ "$P" -le 10 ] && [ "$_notified_10" -eq 0 ]; then
-                DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-                    dunstify -u normal "Battery low" "${P}% remaining"
+                notify -u normal "Battery low" "${P}% remaining"
                 _notified_10=1
             fi
         fi

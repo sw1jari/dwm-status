@@ -13,7 +13,9 @@ It shows:
 - the current track from [music-menu](https://github.com/sw1jari/music-menu), when something is playing
 
 ## Requirements
-bash, xsetroot, procps (`free`), NetworkManager (`nmcli`), dunst (`dunstify`), optionally nvidia-smi
+bash, xsetroot, procps (`free`), NetworkManager (`nmcli`), optionally nvidia-smi.
+
+For the low battery notifications it uses `dunstify` if installed, otherwise `notify-send`. Without either, it still works but stays silent.
 
 ## Install
 ```sh
