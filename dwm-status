@@ -36,7 +36,16 @@ done < <(grep '^cpu' /proc/stat)
 _notified_10=0
 _notified_5=0
 
-while true; do
+# the bar redraws a few times a second so a long music title can scroll smoothly,
+# the other stats are only measured once a second
+TICK=0.25
+TICKS_PER_SECOND=4
+# titles longer than this many characters scroll, MUSIC_WIDTH=15 is handy for testing
+MUSIC_WIDTH="${MUSIC_WIDTH:-50}"
+SCROLL_GAP="   ·   "
+SCROLL_PAUSE_TICKS=8
+
+update_stats() {
     _max_core=0
     while read -r _lbl _u _n _s _i _io _irq _sirq _; do
         case "$_lbl" in
@@ -111,42 +120,78 @@ while true; do
         *)           GOV_ENTRY="$GOV" ;;
     esac
 
+    # wifi network name, else ethernet when a real wired device is up (docker's are "connected (externally)")
     _ssid=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '/^yes/{print $2}')
     if [ -n "$_ssid" ]; then
-        WIFI_ENTRY="📶 ${_ssid:0:10}"
+        NET_ENTRY="📶 ${_ssid:0:10}"
+    elif nmcli -t -f TYPE,STATE device status 2>/dev/null | grep -qx 'ethernet:connected'; then
+        NET_ENTRY="🌐 eth"
     else
-        WIFI_ENTRY="📶 off"
+        NET_ENTRY="📶 off"
     fi
+}
 
-    parts=( "$RAM" "$CPU" "$GOV_ENTRY" )
+# sets MUSIC_ENTRY to "icon title time", or empty when nothing is playing
+_scroll_title="" _scroll_offset=0 _scroll_pause=0
+update_music() {
     # music-menu's mpv first, else whatever Spotify is playing (also the hidden one from spotify-menu)
-    _music="" _music_time=""
+    local line="" icon="" title="" time=""
     if [ -r "${XDG_RUNTIME_DIR:-/tmp}/music-now" ]; then
-        read -r _music < "${XDG_RUNTIME_DIR:-/tmp}/music-now"
+        read -r line < "${XDG_RUNTIME_DIR:-/tmp}/music-now"
+        icon="${line%% *}" title="${line#* }"
     elif command -v playerctl >/dev/null 2>&1; then
         # status|position/length|artist - title, with the title last since it may contain a |
-        _spotify=$(playerctl -p spotify metadata --format \
+        line=$(playerctl -p spotify metadata --format \
             '{{status}}|{{duration(position)}}/{{duration(mpris:length)}}|{{artist}} - {{title}}' 2>/dev/null)
-        _spotify_rest=${_spotify#*|}
-        _music_time=${_spotify_rest%%|*}
-        case "${_spotify%%|*}" in
-            Playing) _music="♪ ${_spotify_rest#*|}" ;;
-            Paused)  _music="⏸ ${_spotify_rest#*|}" ;;
+        local rest="${line#*|}"
+        time="${rest%%|*}" title="${rest#*|}"
+        case "${line%%|*}" in
+            Playing) icon="♪" ;;
+            Paused)  icon="⏸" ;;
+            *)       title="" ;;
         esac
     fi
-    if [ -n "$_music" ]; then
-        # shorten only the title, so the time stays readable
-        [ ${#_music} -gt 50 ] && _music="${_music:0:49}…"
-        [ -n "$_music_time" ] && _music="$_music $_music_time"
-        parts=( "$_music" "${parts[@]}" )
+
+    MUSIC_ENTRY=""
+    [ -z "$title" ] && return
+
+    # a new title starts scrolling from the beginning, after a pause
+    if [ "$title" != "$_scroll_title" ]; then
+        _scroll_title="$title" _scroll_offset=0 _scroll_pause=$SCROLL_PAUSE_TICKS
     fi
+
+    # a long title scrolls left as a ticker: cut a window out of the title repeated twice
+    local shown="$title"
+    if [ ${#title} -gt "$MUSIC_WIDTH" ]; then
+        local ticker="$title$SCROLL_GAP"
+        shown="$ticker$ticker"
+        shown="${shown:$_scroll_offset:$MUSIC_WIDTH}"
+        if [ "$_scroll_pause" -gt 0 ]; then
+            _scroll_pause=$(( _scroll_pause - 1 ))
+        else
+            _scroll_offset=$(( (_scroll_offset + 1) % ${#ticker} ))
+            [ "$_scroll_offset" -eq 0 ] && _scroll_pause=$SCROLL_PAUSE_TICKS
+        fi
+    fi
+
+    MUSIC_ENTRY="$icon $shown${time:+ $time}"
+}
+
+_tick=0
+while true; do
+    (( _tick % TICKS_PER_SECOND == 0 )) && update_stats
+    update_music
+    _tick=$(( _tick + 1 ))
+
+    parts=( "$RAM" "$CPU" "$GOV_ENTRY" )
+    [ -n "$MUSIC_ENTRY" ] && parts=( "$MUSIC_ENTRY" "${parts[@]}" )
     [ -n "$GPU_ENTRY" ] && parts+=( "$GPU_ENTRY" )
     [ -n "$BATT_ENTRY" ] && parts+=( "$BATT_ENTRY" )
-    parts+=( "$WIFI_ENTRY" "$DATE" )
+    parts+=( "$NET_ENTRY" "$DATE" )
 
     status="${parts[0]}"
     for _p in "${parts[@]:1}"; do status="$status | $_p"; done
     xsetroot -name "$status"
 
-    sleep 1
+    sleep "$TICK"
 done
