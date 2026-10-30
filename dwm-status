@@ -45,9 +45,19 @@ MUSIC_WIDTH="${MUSIC_WIDTH:-26}"
 SCROLL_GAP="   ·   "
 # how long a title stands still at its start before it scrolls
 SCROLL_PAUSE_SECONDS=4
-SCROLL_PAUSE_TICKS=$(( SCROLL_PAUSE_SECONDS * TICKS_PER_SECOND ))
 # music that stays paused this long drops off the bar until it plays again
 PAUSED_HIDE_SECONDS="${PAUSED_HIDE_SECONDS:-600}"
+
+# the entries on the bar, left to right; leave one out to hide it
+ENTRIES=(music focus ram cpu governor gpu battery network date)
+
+# the config can change ENTRIES and the settings above, and add entries of its own:
+# a function entry_NAME prints the text for NAME and runs once a second
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/dwm-status/config"
+# shellcheck disable=SC1090
+[ -r "$CONFIG" ] && . "$CONFIG"
+SCROLL_PAUSE_TICKS=$(( SCROLL_PAUSE_SECONDS * TICKS_PER_SECOND ))
+declare -A CUSTOM
 
 # reads the focus schedule (HH:MM-HH:MM per line, may wrap past midnight) and sets
 # _focus_end to the end of the block we're in and _focus_next to the next block's start
@@ -66,6 +76,13 @@ focus_times() {
         d=$(( (s - now + 1440) % 1440 ))
         (( d > 0 && d < best )) && best=$d _focus_next="$start"
     done < /etc/focus/schedule
+}
+
+update_custom() {
+    local name
+    for name in "${ENTRIES[@]}"; do
+        declare -F "entry_$name" >/dev/null && CUSTOM[$name]=$("entry_$name" 2>/dev/null)
+    done
 }
 
 update_stats() {
@@ -232,16 +249,26 @@ update_music() {
 
 _tick=0
 while true; do
-    (( _tick % TICKS_PER_SECOND == 0 )) && update_stats
+    if (( _tick % TICKS_PER_SECOND == 0 )); then update_stats; update_custom; fi
     update_music
     _tick=$(( _tick + 1 ))
 
-    parts=( "$RAM" "$CPU" "$GOV_ENTRY" )
-    [ -n "$FOCUS_ENTRY" ] && parts=( "$FOCUS_ENTRY" "${parts[@]}" )
-    [ -n "$MUSIC_ENTRY" ] && parts=( "$MUSIC_ENTRY" "${parts[@]}" )
-    [ -n "$GPU_ENTRY" ] && parts+=( "$GPU_ENTRY" )
-    [ -n "$BATT_ENTRY" ] && parts+=( "$BATT_ENTRY" )
-    parts+=( "$NET_ENTRY" "$DATE" )
+    parts=()
+    for _name in "${ENTRIES[@]}"; do
+        case $_name in
+            music)    _v=$MUSIC_ENTRY ;;
+            focus)    _v=$FOCUS_ENTRY ;;
+            ram)      _v=$RAM ;;
+            cpu)      _v=$CPU ;;
+            governor) _v=$GOV_ENTRY ;;
+            gpu)      _v=$GPU_ENTRY ;;
+            battery)  _v=$BATT_ENTRY ;;
+            network)  _v=$NET_ENTRY ;;
+            date)     _v=$DATE ;;
+            *)        _v=${CUSTOM[$_name]} ;;
+        esac
+        [ -n "$_v" ] && parts+=( "$_v" )
+    done
 
     status="${parts[0]}"
     for _p in "${parts[@]:1}"; do status="$status | $_p"; done
