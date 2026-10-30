@@ -172,7 +172,8 @@ update_music() {
     # music-menu's mpv first, else whatever Spotify is playing (also the hidden one from spotify-menu)
     local line="" icon="" title="" time="" repeat=""
     if [ -r "${XDG_RUNTIME_DIR:-/tmp}/music-now" ]; then
-        read -r line < "${XDG_RUNTIME_DIR:-/tmp}/music-now"
+        # the title, then the time into the track and its length on a second line
+        { read -r line; read -r time; } < "${XDG_RUNTIME_DIR:-/tmp}/music-now"
         icon="${line%% *}" title="${line#* }"
     elif command -v playerctl >/dev/null 2>&1; then
         # status|loop|position/length|artist - title, with the title last since it may contain a |
