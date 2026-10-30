@@ -1,30 +1,47 @@
 # dwm-status
 
-A status bar script for dwm that updates every second.
+A status bar script for dwm.
 
 ![the bar with a scrolling song title](docs/dwm-status.gif)
 
-It shows:
-- RAM use
-- average CPU use and the busiest core
-- the CPU governor (🐢 powersave, 🚀 performance)
-- GPU use and VRAM, if `nvidia-smi` is available
-- battery level and charging state, with a notification at 10% and 5%
-- the wifi network, or "eth" when connected by ethernet
-- the date and time
-- the current track from [music-menu](https://github.com/sw1jari/music-menu), or else from Spotify (via playerctl), when something is playing or paused. It shows the time into the song and its length, and for Spotify 🔁 or 🔂 when on repeat all or repeat one. Titles longer than 26 characters scroll left like a ticker; set `MUSIC_WIDTH` to change that limit. Music that stays paused for 10 minutes drops off the bar until it plays again; set `PAUSED_HIDE_SECONDS` to change that
-- the [focus](https://github.com/sw1jari/focus) blocker, 🎯 with the time the current focus block ends, or ☕ with the time the next one starts during a break
+## What it shows
 
-## Requirements
-bash, xsetroot, procps (`free`), NetworkManager (`nmcli`), optionally nvidia-smi.
+| Entry | Example | Notes |
+|---|---|---|
+| music | `♪ Daft Punk - Digital Love 1:23/5:01 🔁` | from [music-menu](https://github.com/sw1jari/music-menu), else Spotify via playerctl |
+| focus | `🎯 13:00` or `☕ 14:00` | end of the current block or start of the next, from [focus](https://github.com/sw1jari/focus) |
+| RAM | `RAM 16%` | |
+| CPU | `CPU 5% Max 9%` | average and the busiest core |
+| governor | 🐢 or 🚀 | powersave or performance |
+| GPU | `GPU 3% VRAM 5%` | only with `nvidia-smi` |
+| battery | `🔋 80%` | ⚡ charging, 🔌 full, notifications at 10% and 5% |
+| network | `📶 Home` or `🌐 eth` | |
+| date | `Fri 30 Oct 21:06` | |
 
-For the low battery notifications it uses `dunstify` if installed, otherwise `notify-send`. Without either, it still works but stays silent.
+Music details:
+- titles longer than 26 characters scroll like a ticker
+- 🔁 repeat all, 🔂 repeat one (Spotify)
+- music paused for 10 minutes disappears until it plays again
+
+## Settings
+
+Environment variables, all optional:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `MUSIC_WIDTH` | 26 | characters before a title scrolls |
+| `PAUSED_HIDE_SECONDS` | 600 | how long paused music stays on the bar |
 
 ## Install
+
+Needs bash, xsetroot, procps (`free`) and NetworkManager (`nmcli`). Optional: nvidia-smi, playerctl, and dunst or notify-send for the battery notifications.
+
 ```sh
 cp dwm-status ~/.local/bin/
 ```
+
 Start it from `~/.xinitrc` before dwm:
+
 ```sh
 dwm-status &
 exec dwm
