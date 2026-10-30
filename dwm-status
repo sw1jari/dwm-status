@@ -46,6 +46,8 @@ SCROLL_GAP="   ·   "
 # how long a title stands still at its start before it scrolls
 SCROLL_PAUSE_SECONDS=4
 SCROLL_PAUSE_TICKS=$(( SCROLL_PAUSE_SECONDS * TICKS_PER_SECOND ))
+# music that stays paused this long drops off the bar until it plays again
+PAUSED_HIDE_SECONDS="${PAUSED_HIDE_SECONDS:-600}"
 
 # reads the focus schedule (HH:MM-HH:MM per line, may wrap past midnight) and sets
 # _focus_end to the end of the block we're in and _focus_next to the next block's start
@@ -165,6 +167,7 @@ update_stats() {
 
 # sets MUSIC_ENTRY to "icon title time", or empty when nothing is playing
 _scroll_title="" _scroll_offset=0 _scroll_pause=0
+_paused_title="" _paused_since=0
 update_music() {
     # music-menu's mpv first, else whatever Spotify is playing (also the hidden one from spotify-menu)
     local line="" icon="" title="" time="" repeat=""
@@ -189,6 +192,16 @@ update_music() {
             Track)    repeat="🔂" ;;
             Playlist) repeat="🔁" ;;
         esac
+    fi
+
+    # the pause clock starts over for every new title, so skipping while paused shows it again
+    if [ "$icon" = "⏸" ]; then
+        if [ "$title" != "$_paused_title" ]; then
+            _paused_title="$title" _paused_since=$SECONDS
+        fi
+        (( SECONDS - _paused_since >= PAUSED_HIDE_SECONDS )) && title=""
+    else
+        _paused_title=""
     fi
 
     MUSIC_ENTRY=""
