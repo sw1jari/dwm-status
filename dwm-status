@@ -47,6 +47,25 @@ SCROLL_GAP="   ·   "
 SCROLL_PAUSE_SECONDS=4
 SCROLL_PAUSE_TICKS=$(( SCROLL_PAUSE_SECONDS * TICKS_PER_SECOND ))
 
+# reads the focus schedule (HH:MM-HH:MM per line, may wrap past midnight) and sets
+# _focus_end to the end of the block we're in and _focus_next to the next block's start
+focus_times() {
+    local now line s e start end d best=1440
+    now=$(( 10#$(date +%H) * 60 + 10#$(date +%M) ))
+    _focus_end="" _focus_next=""
+    while IFS= read -r line; do
+        case $line in ''|'#'*) continue ;; esac
+        start="${line%-*}" end="${line#*-}"
+        s=$(( 10#${start%:*} * 60 + 10#${start#*:} ))
+        e=$(( 10#${end%:*} * 60 + 10#${end#*:} ))
+        if (( s <= e ? (now >= s && now < e) : (now >= s || now < e) )); then
+            _focus_end="$end"
+        fi
+        d=$(( (s - now + 1440) % 1440 ))
+        (( d > 0 && d < best )) && best=$d _focus_next="$start"
+    done < /etc/focus/schedule
+}
+
 update_stats() {
     _max_core=0
     while read -r _lbl _u _n _s _i _io _irq _sirq _; do
@@ -122,6 +141,17 @@ update_stats() {
         *)           GOV_ENTRY="$GOV" ;;
     esac
 
+    # focus blocker: a target with the end of the current study block while it's on,
+    # a coffee with the start of the next block in between, nothing once the focus period is over
+    FOCUS_ENTRY=""
+    if systemctl is-active --quiet focus-dns.service; then
+        focus_times
+        FOCUS_ENTRY="🎯 $_focus_end"
+    elif systemctl is-active --quiet focus.timer; then
+        focus_times
+        FOCUS_ENTRY="☕ $_focus_next"
+    fi
+
     # wifi network name, else ethernet when a real wired device is up (docker's are "connected (externally)")
     _ssid=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '/^yes/{print $2}')
     if [ -n "$_ssid" ]; then
@@ -193,6 +223,7 @@ while true; do
     _tick=$(( _tick + 1 ))
 
     parts=( "$RAM" "$CPU" "$GOV_ENTRY" )
+    [ -n "$FOCUS_ENTRY" ] && parts=( "$FOCUS_ENTRY" "${parts[@]}" )
     [ -n "$MUSIC_ENTRY" ] && parts=( "$MUSIC_ENTRY" "${parts[@]}" )
     [ -n "$GPU_ENTRY" ] && parts+=( "$GPU_ENTRY" )
     [ -n "$BATT_ENTRY" ] && parts+=( "$BATT_ENTRY" )
