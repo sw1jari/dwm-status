@@ -74,3 +74,7 @@ Start it from `~/.xinitrc` before dwm:
 dwm-status &
 exec dwm
 ```
+
+## License
+
+MIT
