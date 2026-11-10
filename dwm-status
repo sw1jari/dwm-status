@@ -197,7 +197,7 @@ update_stats() {
 _scroll_title="" _scroll_offset=0 _scroll_pause=0
 _paused_title="" _paused_since=0
 update_music() {
-    # music-menu's mpv first, else whatever Spotify is playing (also the hidden one from spotify-menu)
+    # musicmenu's mpv first, else whatever Spotify is playing (also the hidden one from spotimenu)
     local line="" icon="" title="" time="" repeat=""
     if [ -r "${XDG_RUNTIME_DIR:-/tmp}/music-now" ]; then
         # the title, then the time into the track and its length on a second line

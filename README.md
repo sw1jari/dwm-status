@@ -8,7 +8,7 @@ A status bar script for dwm.
 
 | Name | Example | Notes |
 |---|---|---|
-| `music` | `♪ Daft Punk - Digital Love 1:23/5:01 🔁` | From [music-menu](https://github.com/sw1jari/music-menu), else Spotify via playerctl |
+| `music` | `♪ Daft Punk - Digital Love 1:23/5:01 🔁` | From [musicmenu](https://github.com/sw1jari/musicmenu), else Spotify via playerctl |
 | `focus` | `🎯 13:00` or `☕ 14:00` | End of the focus block, or start of the next during a break, from [focus](https://github.com/sw1jari/focus) |
 | `ram` | `RAM 16%` | |
 | `cpu` | `CPU 5% Max 9%` | Average and the busiest core |
