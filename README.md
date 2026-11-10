@@ -16,6 +16,7 @@ A status bar script for dwm.
 | `gpu` | `GPU 3% VRAM 5%` | Only with nvidia-smi |
 | `battery` | `🔋 80%` | ⚡ charging, 🔌 full, notifications at 10% and 5% |
 | `network` | `📶 Home` or `🌐 eth` | |
+| `vpn` | `eduVPN` | Name of the active NetworkManager VPN, `eduVPN...` while connecting, hidden when off |
 | `date` | `Fri 30 Oct 21:06` | |
 
 Music details:
@@ -31,7 +32,7 @@ Settings go in `~/.config/dwm-status/config`, a bash file read at startup. Every
 
 ```bash
 # default
-ENTRIES=(music focus ram cpu governor gpu battery network date)
+ENTRIES=(music focus ram cpu governor gpu battery network vpn date)
 
 # no GPU or governor, date first
 ENTRIES=(date music focus ram cpu battery network)
@@ -60,9 +61,34 @@ ENTRIES=(music focus disk volume ram cpu network date)
 | `MUSIC_WIDTH` | `26` | Characters before a title scrolls |
 | `PAUSED_HIDE_SECONDS` | `600` | How long paused music stays on the bar |
 
+## Study countdown and timer
+
+[`config.example`](config.example) adds two entries:
+
+| Name | Example | Notes |
+|---|---|---|
+| `study` | `📚 Lecture 2 [2/7] 41:20` or `☕ Exercises [3/7] in 12:05` | Time left in the current block of the study schedule, or until the next one |
+| `timer` | `⏱ reading 24:13` | A timer started from dmenu |
+
+The schedule lives in `~/.config/dwm-status/study-schedule`, one block per line, see [`study-schedule.example`](study-schedule.example).
+
+[`timer`](timer) is a dmenu script that controls both. Type `timer` in dmenu_run, then:
+- a time and an optional name to start a timer, like `25 reading` or `1h 30m deep work`
+- `+10m` to add time
+- pick pause, resume, stop or start from the list, for the timer and for the study schedule
+
+Pausing the study schedule moves every later block back by the length of the pause.
+
+```sh
+cp timer ~/.local/bin/
+mkdir -p ~/.config/dwm-status
+cp config.example ~/.config/dwm-status/config
+cp study-schedule.example ~/.config/dwm-status/study-schedule
+```
+
 ## Install
 
-Needs bash, xsetroot, procps (`free`) and NetworkManager (`nmcli`). Optional: nvidia-smi, playerctl, and dunst or libnotify for the battery notifications.
+Needs bash, xsetroot, procps (`free`) and NetworkManager (`nmcli`). Optional: nvidia-smi, playerctl, dunst or libnotify for the battery notifications, and dmenu for the timer.
 
 ```sh
 cp dwm-status ~/.local/bin/

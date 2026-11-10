@@ -49,7 +49,7 @@ SCROLL_PAUSE_SECONDS=4
 PAUSED_HIDE_SECONDS="${PAUSED_HIDE_SECONDS:-600}"
 
 # the entries on the bar, left to right; leave one out to hide it
-ENTRIES=(music focus ram cpu governor gpu battery network date)
+ENTRIES=(music focus ram cpu governor gpu battery network vpn date)
 
 # the config can change ENTRIES and the settings above, and add entries of its own:
 # a function entry_NAME prints the text for NAME and runs once a second
@@ -180,6 +180,17 @@ update_stats() {
     else
         NET_ENTRY="📶 off"
     fi
+
+    # the active VPN by its NetworkManager name, with "..." while it's still connecting
+    VPN_ENTRY=""
+    while IFS=: read -r _vname _vtype _vstate; do
+        case $_vtype in vpn | wireguard) ;; *) continue ;; esac
+        case $_vstate in
+            activated)  VPN_ENTRY=$_vname ;;
+            activating) VPN_ENTRY="$_vname..." ;;
+        esac
+        break
+    done < <(nmcli -t -f NAME,TYPE,STATE connection show --active 2>/dev/null)
 }
 
 # sets MUSIC_ENTRY to "icon title time", or empty when nothing is playing
@@ -263,6 +274,7 @@ while true; do
             governor) _v=$GOV_ENTRY ;;
             gpu)      _v=$GPU_ENTRY ;;
             battery)  _v=$BATT_ENTRY ;;
+            vpn)      _v=$VPN_ENTRY ;;
             network)  _v=$NET_ENTRY ;;
             date)     _v=$DATE ;;
             *)        _v=${CUSTOM[$_name]} ;;
