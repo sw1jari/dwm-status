@@ -1,0 +1,69 @@
+# Example config with a study countdown and a dmenu timer on the bar.
+# Copy it to ~/.config/dwm-status/config, then restart dwm-status.
+
+# study countdown: time left in the current block, or time until the next one starts
+ENTRIES=(study timer music focus ram cpu governor gpu battery network vpn date)
+
+entry_study() {
+    local f="$HOME/.config/dwm-status/study-schedule" t d s e label nows st en best=999999999 bestlabel="" bestidx="" off=0 paused="" icon line k=0 total
+    local -a rows=()
+    printf -v t '%(%d %H %M %S)T' -1
+    set -- $t
+    nows=$(( 10#$1 * 86400 + 10#$2 * 3600 + 10#$3 * 60 + 10#$4 ))
+    # pausing freezes the clock the schedule reads, and resuming moves the whole schedule later by the pause
+    [ -r "$HOME/.config/dwm-status/study-offset" ] && off=$(< "$HOME/.config/dwm-status/study-offset")
+    [ -r "$HOME/.config/dwm-status/study-pause" ] && paused=$(< "$HOME/.config/dwm-status/study-pause")
+    [ -n "$paused" ] && nows=$paused
+    nows=$(( nows - off ))
+    while read -r line; do
+        case $line in ''|'#'*) continue ;; esac
+        rows+=("$line")
+    done < "$f"
+    total=${#rows[@]}
+    for line in "${rows[@]}"; do
+        read -r d s e label <<< "$line"
+        k=$(( k + 1 ))
+        st=$(( 10#$d * 86400 + 10#${s%:*} * 3600 + 10#${s#*:} * 60 ))
+        en=$(( 10#$d * 86400 + 10#${e%:*} * 3600 + 10#${e#*:} * 60 ))
+        if (( nows >= st && nows < en )); then
+            en=$(( en - nows ))
+            icon="📚"; [ -n "$paused" ] && icon="⏸"
+            printf '%s %s [%d/%d] %d:%02d' "$icon" "$label" "$k" "$total" $(( en / 60 )) $(( en % 60 ))
+            return
+        fi
+        if (( st > nows && st - nows < best )); then best=$(( st - nows )) bestlabel=$label bestidx=$k; fi
+    done
+    if [ -n "$bestlabel" ]; then
+        icon="☕"; [ -n "$paused" ] && icon="⏸"
+        if (( best >= 3600 )); then
+            printf '%s %s [%d/%d] in %dh%02dm' "$icon" "$bestlabel" "$bestidx" "$total" $(( best / 3600 )) $(( best % 3600 / 60 ))
+        else
+            printf '%s %s [%d/%d] in %d:%02d' "$icon" "$bestlabel" "$bestidx" "$total" $(( best / 60 )) $(( best % 60 ))
+        fi
+    fi
+}
+
+# dmenu timer from ~/.local/bin/timer: the state file holds "running END_EPOCH name"
+# or "paused SECONDS_LEFT name"
+entry_timer() {
+    local f="${XDG_RUNTIME_DIR:-/tmp}/timer-state" st val name now left icon
+    [ -r "$f" ] || return
+    read -r st val name < "$f"
+    printf -v now '%(%s)T' -1
+    if [ "$st" = running ]; then
+        left=$(( val - now ))
+        if (( left <= 0 )); then
+            rm -f "$f"
+            notify -u critical "Timer done" "${name:-timer}"
+            return
+        fi
+        icon="⏱"
+    else
+        left=$val icon="⏸"
+    fi
+    if (( left >= 3600 )); then
+        printf '%s%s %d:%02d:%02d' "$icon" "${name:+ $name}" $(( left / 3600 )) $(( left % 3600 / 60 )) $(( left % 60 ))
+    else
+        printf '%s%s %d:%02d' "$icon" "${name:+ $name}" $(( left / 60 )) $(( left % 60 ))
+    fi
+}

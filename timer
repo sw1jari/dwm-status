@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# dmenu timer: type "timer" in dmenu_run.
+# - With no custom timer running, type a time and an optional name to start one, like "25 reading" or "1h 30m deep work".
+# - Time formats (also used by the add time prompts, which accept a leading +, like +10m):
+#   10             bare number is minutes
+#   1:30, 0:10     h:m, left aligned (1:30 is 1h30m, 0:10 is 10 minutes)
+#   1:30:00, ::10  h:m:s, empty parts count as 0 (:10 is 10 minutes, 1:: is 1 hour)
+#   10m, 1h30m, 1 h 30 min, 90s, 2h, 1.5h   units h/hr/hrs/hour(s), m/min(s)/minute(s), s/sec(s)/second(s),
+#                  any case, spaces optional, a trailing bare number is minutes after h (1h30) or seconds after m (1m30)
+#   The longest leading run of words that is a valid time is used, the rest is the name.
+# - Pause/resume and stop for the custom timer and for the study schedule countdown are listed as options.
+# dwm-status shows both from the files below (entry_study and entry_timer in ~/.config/dwm-status/config).
+
+STATE="${XDG_RUNTIME_DIR:-/tmp}/timer-state"
+DMENU="${DMENU:-dmenu}"
+CFG="$HOME/.config/dwm-status"
+SCHED="$CFG/study-schedule" STOPPED="$CFG/study-schedule.stopped"
+OFFSET="$CFG/study-offset" PAUSE="$CFG/study-pause"
+
+now() { printf '%(%s)T' -1; }
+# seconds since the start of the month, the same clock the schedule uses
+daysec() { local t; printf -v t '%(%d %H %M %S)T' -1; set -- $t; echo $(( 10#$1 * 86400 + 10#$2 * 3600 + 10#$3 * 60 + 10#$4 )); }
+
+# sets SECS from a full time string, returns 1 when it is not a valid time above zero
+parse() {
+    local t="${1,,}" h=0 m=0 s=0 p n u unit mult last=0 first=1 total=0 whole frac
+    t="${t#"${t%%[![:space:]]*}"}"; t="${t%"${t##*[![:space:]]}"}"
+    [[ -n $t ]] || return 1
+    if [[ $t == *:* ]]; then
+        [[ $t =~ ^[0-9]*(:[0-9]*){1,2}$ ]] || return 1
+        IFS=: read -ra p <<< "$t"
+        h=${p[0]:-0} m=${p[1]:-0} s=${p[2]:-0}
+        SECS=$(( 10#$h * 3600 + 10#$m * 60 + 10#$s ))
+        (( SECS > 0 )); return
+    fi
+    while [[ -n $t ]]; do
+        [[ $t =~ ^([0-9]+(\.[0-9]+)?|\.[0-9]+)[[:space:]]*([a-z]*)[[:space:]]*(.*)$ ]] || return 1
+        n=${BASH_REMATCH[1]} u=${BASH_REMATCH[3]} t=${BASH_REMATCH[4]}
+        case $u in
+            h|hr|hrs|hour|hours) unit=3 mult=3600 ;;
+            m|min|mins|minute|minutes) unit=2 mult=60 ;;
+            s|sec|secs|second|seconds) unit=1 mult=1 ;;
+            "") # bare number: minutes alone or after hours, seconds after minutes
+                [[ -z $t ]] || return 1
+                if (( first )); then unit=2 mult=60
+                elif (( last == 3 )); then unit=2 mult=60
+                elif (( last == 2 )); then unit=1 mult=1
+                else return 1; fi ;;
+            *) return 1 ;;
+        esac
+        (( first || unit < last )) || return 1
+        [[ $n == .* ]] && n=0$n
+        whole=${n%%.*} frac=""
+        [[ $n == *.* ]] && frac=${n#*.}
+        total=$(( total + 10#$whole * mult ))
+        if [[ -n $frac ]]; then frac=${frac:0:6}; total=$(( total + 10#$frac * mult / 10 ** ${#frac} )); fi
+        last=$unit first=0
+    done
+    SECS=$total
+    (( SECS > 0 ))
+}
+
+# write the state in one step so the bar never reads half a line
+save() { printf '%s %s %s\n' "$1" "$2" "$3" > "$STATE.tmp" && mv "$STATE.tmp" "$STATE"; }
+
+# the longest leading run of words that forms a valid time is the time, the rest is the name
+start_timer() {
+    local -a w; local i
+    read -ra w <<< "$1"
+    for (( i = ${#w[@]}; i >= 1; i-- )); do
+        if parse "${w[*]:0:i}"; then
+            save running $(( $(now) + SECS )) "${w[*]:i}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# ask for a time and set SECS, returns 1 when dismissed
+ask_time() {
+    local input prompt="add time (h:m:s or 10m):"
+    while true; do
+        input=$($DMENU -p "$prompt" < /dev/null) || return 1
+        [ -z "$input" ] && return 1
+        parse "${input#+}" && return 0
+        prompt="can't read \"$input\", try 0:10 or 5m:"
+    done
+}
+
+add_study() {
+    local off=0
+    [ -r "$OFFSET" ] && off=$(< "$OFFSET")
+    echo $(( off + $1 )) > "$OFFSET"
+}
+
+has_timer=0 name="" st="" val=""
+entries=()
+if [ -r "$STATE" ]; then
+    has_timer=1
+    read -r st val name < "$STATE"
+    if [ "$st" = running ]; then entries+=("⏸ Pause timer"); else entries+=("▶ Resume timer"); fi
+    entries+=("➕ Add time to timer" "⏹ Stop timer")
+fi
+if [ -f "$SCHED" ]; then
+    if [ -f "$PAUSE" ]; then entries+=("▶ Resume study"); else entries+=("⏸ Pause study"); fi
+    entries+=("➕ Add time to study" "⏹ Stop study")
+elif [ -f "$STOPPED" ]; then
+    entries+=("▶ Start study")
+fi
+
+if (( has_timer )); then prompt="timer${name:+ $name}:"; else prompt="timer time [name]:"; fi
+
+while true; do
+    choice=$( ((${#entries[@]})) && printf '%s\n' "${entries[@]}" | $DMENU -p "$prompt" || $DMENU -p "$prompt" < /dev/null ) || exit 0
+    [ -z "$choice" ] && exit 0
+    case "$choice" in
+        "⏸ Pause timer")
+            left=$(( val - $(now) )); (( left < 1 )) && left=1
+            save paused "$left" "$name"; exit 0 ;;
+        "▶ Resume timer") save running $(( $(now) + val )) "$name"; exit 0 ;;
+        "⏹ Stop timer")   rm -f "$STATE"; exit 0 ;;
+        "➕ Add time to timer")
+            ask_time || exit 0
+            if [ "$st" = running ]; then save running $(( val + SECS )) "$name"; else save paused $(( val + SECS )) "$name"; fi
+            exit 0 ;;
+        "➕ Add time to study") ask_time || exit 0; add_study "$SECS"; exit 0 ;;
+        +*) # typed +10m adds to the study countdown, or to the timer when there is no schedule
+            if parse "${choice#+}"; then
+                if [ -f "$SCHED" ]; then add_study "$SECS"
+                elif (( has_timer )); then
+                    if [ "$st" = running ]; then save running $(( val + SECS )) "$name"; else save paused $(( val + SECS )) "$name"; fi
+                fi
+                exit 0
+            fi ;;
+        "⏸ Pause study")  daysec > "$PAUSE"; exit 0 ;;
+        "▶ Resume study")
+            [ -r "$PAUSE" ] || exit 0
+            off=0; [ -r "$OFFSET" ] && off=$(< "$OFFSET")
+            echo $(( off + $(daysec) - $(< "$PAUSE") )) > "$OFFSET"
+            rm -f "$PAUSE"; exit 0 ;;
+        "⏹ Stop study")   mv "$SCHED" "$STOPPED"; rm -f "$PAUSE"; exit 0 ;;
+        "▶ Start study")  mv "$STOPPED" "$SCHED"; exit 0 ;;
+    esac
+    if (( ! has_timer )) && start_timer "$choice"; then exit 0; fi
+    prompt="can't read \"${choice%% *}\", try 0:25 or 25m [name]:"
+    entries=()
+done

@@ -1,0 +1,12 @@
+# Study blocks for the countdown, one per line: day of the month, start, end, label.
+# Times are HH:MM; an end past 24:00 runs into the next day, like 23:30 24:30.
+# The bar counts down the current block, or shows how long until the next one.
+# Copy it to ~/.config/dwm-status/study-schedule, or to study-schedule.stopped to
+# start it later from the timer menu.
+14 09:00 10:30 Lecture 1
+14 10:45 12:15 Lecture 2
+14 13:15 14:45 Exercises
+14 15:00 16:30 Summary
+15 09:00 10:30 Lecture 3
+15 10:45 12:15 Past exam
+15 13:15 15:00 Review mistakes
